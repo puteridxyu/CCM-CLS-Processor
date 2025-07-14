@@ -16,7 +16,7 @@ public class ClsProcessorApplication {
     @Bean
     public CommandLineRunner run(FileProcessorService fileProcessorService) {
         return args -> {
-            String filePath = "src/main/resources/input.txt"; // your data file
+            String filePath = "src/main/resources/input.txt";
             fileProcessorService.processFile(filePath);
         };
     }
