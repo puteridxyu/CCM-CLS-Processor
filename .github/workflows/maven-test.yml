@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,6 +28,5 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Run Unit Tests
-        working-directory: ./cls-processor
+      - name: Run Maven build and tests
         run: ./mvnw clean verify
