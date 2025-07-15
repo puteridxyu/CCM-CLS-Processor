@@ -1,50 +1,68 @@
 package com.ccm.cls.processor.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.io.BufferedReader;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 @Slf4j
 @Service
 public class FileProcessorService {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    public String processUploadedFile(MultipartFile file) {
+        try {
+            // Rename using timestamp
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+            String originalFilename = file.getOriginalFilename();
+            String newFilename = originalFilename != null
+                    ? originalFilename.replace(".txt", "_" + timestamp + ".txt")
+                    : "uploaded_" + timestamp + ".txt";
 
-    public void processFile(String filePath) {
-        try (BufferedReader reader = Files.newBufferedReader(Path.of(filePath))) {
-            String headerLine = reader.readLine(); // Step 1: read field names
-            if (headerLine == null || headerLine.isBlank()) {
-                log.warn("File is empty or missing headers.");
+            Path tempFile = Files.createTempFile("upload_", newFilename);
+            file.transferTo(tempFile.toFile());
+
+            processFile(tempFile.toFile());
+
+            return "File successfully uploaded and processed: " + originalFilename + "\n\n";
+
+        } catch (IOException e) {
+            log.error("Failed to process uploaded file", e);
+            return "Error processing file";
+        }
+    }
+
+    public void processFile(File file) {
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String headerLine = br.readLine();
+            if (headerLine == null) {
+                log.warn("Empty file or missing header.");
                 return;
             }
 
             String[] headers = headerLine.split("\\|");
-
             String line;
-            while ((line = reader.readLine()) != null) { // Step 2: stream line-by-line
-                if (line.isBlank()) continue; // skip empty lines
-
+            
+            // Read line-by-line
+            while ((line = br.readLine()) != null) {
                 String[] values = line.split("\\|");
+                Map<String, String> map = new ConcurrentHashMap<>();
 
-                ConcurrentMap<String, String> recordMap = new ConcurrentHashMap<>();
-                for (int index = 0; index < headers.length && index < values.length; index++) {
-                    recordMap.put(headers[index], values[index]);
+                // Map header to values using ConcurrentMap 
+                for (int x = 0; x < headers.length && x < values.length; x++) {
+                    map.put(headers[x], values[x]);
                 }
 
-                String json = objectMapper.writeValueAsString(recordMap); // Step 3: log as JSON
-                log.info(json);
+                // Log each line as JSON
+                log.info("{}", new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(map));
             }
-
         } catch (IOException e) {
-            log.error("Error processing file '{}'", filePath, e);
+            log.error("Error processing file", e);
         }
     }
 }
-
